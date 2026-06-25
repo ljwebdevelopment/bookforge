@@ -1,9 +1,9 @@
-import { anthropic } from '@ai-sdk/anthropic'
+import { google } from '@ai-sdk/google'
 
 export function getAIProvider(modelId?: string) {
-  const model = modelId ?? process.env.DEFAULT_AI_MODEL ?? 'claude-sonnet-4-6'
-  return anthropic(model)
+  const model = modelId ?? process.env.DEFAULT_AI_MODEL ?? 'gemini-2.5-flash'
+  return google(model)
 }
 
-export const DEFAULT_MODEL = 'claude-sonnet-4-6'
-export const FAST_MODEL = 'claude-haiku-4-5-20251001'
+export const DEFAULT_MODEL = 'gemini-2.5-flash'
+export const FAST_MODEL = 'gemini-2.0-flash'

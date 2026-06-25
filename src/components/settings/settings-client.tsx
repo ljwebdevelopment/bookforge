@@ -22,9 +22,9 @@ interface SettingsClientProps {
 }
 
 const AI_MODELS = [
-  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (Recommended)' },
-  { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (Fast)' },
-  { id: 'claude-opus-4-8', label: 'Claude Opus 4.8 (Most capable)' },
+  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Recommended)' },
+  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (Most capable)' },
+  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Fast)' },
 ]
 
 export function SettingsClient({ project, settings }: SettingsClientProps) {

@@ -45,7 +45,7 @@ export async function createProject(
   await Promise.all([
     supabase.from('project_settings').insert({
       project_id: projectId,
-      ai_model: 'claude-sonnet-4-6',
+      ai_model: 'gemini-2.5-flash',
     }),
     supabase.from('writing_guidelines').insert({
       project_id: projectId,
