@@ -77,11 +77,12 @@ export function TipTapEditor({ projectId, chapterId, initialContent, onContentCh
   }, [chapterId, setCurrentChapter])
 
   useEffect(() => {
-    if (!editor || !initialContent) return
-    if (JSON.stringify(editor.getJSON()) !== JSON.stringify(initialContent)) {
-      editor.commands.setContent(initialContent)
-    }
-  }, [chapterId]) // Only sync when chapter changes, not on every render
+    if (!editor) return
+    // When switching chapters: set the new content, or clear to blank if new chapter
+    const newContent = initialContent ?? { type: 'doc', content: [{ type: 'paragraph' }] }
+    editor.commands.setContent(newContent, false) // false = don't emit update (avoid triggering save)
+    setWordCount(editor.getText().split(/\s+/).filter(Boolean).length)
+  }, [chapterId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!editor) return null
 
