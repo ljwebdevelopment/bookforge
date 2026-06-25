@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   const { projectId, chapterId, text } = await req.json()
   if (!text) return new Response('Missing text', { status: 400 })
 
-  const ctx = await buildProjectContext(supabase, projectId)
+  const ctx = await buildProjectContext(supabase, projectId, chapterId ?? null)
 
   const { object } = await generateObject({
     model: getAIProvider(ctx.aiModel),

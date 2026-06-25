@@ -23,8 +23,8 @@ const SMART_EDIT_ACTIONS = [
 ]
 
 export function InlineSuggestion() {
-  const { pendingSuggestion, setPendingSuggestion, setPanelMode } = useAIStore()
-  const { selectedText, currentProjectId } = useEditorStore()
+  const { setPanelMode } = useAIStore()
+  const { selectedText, currentProjectId, currentChapterId } = useEditorStore()
   const [loading, setLoading] = useState(false)
   const [action, setAction] = useState('rewrite')
   const [result, setResult] = useState<string | null>(null)
@@ -41,6 +41,7 @@ export function InlineSuggestion() {
           selectedText,
           action,
           projectId: currentProjectId,
+          chapterId: currentChapterId,
         }),
       })
       const data = await res.json()

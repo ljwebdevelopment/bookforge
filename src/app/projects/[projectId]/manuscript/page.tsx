@@ -50,6 +50,7 @@ export default async function ManuscriptPage({
       </div>
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <TipTapEditor
+          key={activeChapter.id}
           projectId={projectId}
           chapterId={activeChapter.id}
           initialContent={activeChapter.content as object | null}

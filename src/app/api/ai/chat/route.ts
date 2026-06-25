@@ -11,9 +11,9 @@ export async function POST(req: Request) {
   if (!user) return new Response('Unauthorized', { status: 401 })
 
   const body = await req.json()
-  const { messages, projectId } = body
+  const { messages, projectId, chapterId } = body
 
-  const ctx = await buildProjectContext(supabase, projectId)
+  const ctx = await buildProjectContext(supabase, projectId, chapterId ?? null)
 
   const result = streamText({
     model: getAIProvider(ctx.aiModel),
