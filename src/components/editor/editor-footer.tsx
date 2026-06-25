@@ -22,10 +22,10 @@ export function EditorFooter({ editor }: EditorFooterProps) {
   const { saveStatus } = useEditorStore()
   const { focusMode, toggleFocusMode } = useUIStore()
 
-  const text = editor.getText()
-  const words = getWordCount(text)
-  const sentences = getSentenceCount(text)
-  const paragraphs = getParagraphCount(editor.getJSON())
+  const json = editor.getJSON()
+  const words = getWordCount(json)
+  const sentences = getSentenceCount(json)
+  const paragraphs = getParagraphCount(json)
   const pages = estimatePages(words)
   const readingTime = Math.max(1, Math.round(words / 250))
 

@@ -59,18 +59,24 @@ export function AiChatPanel({ projectId }: AiChatPanelProps) {
             </div>
             <p className="text-sm font-medium mb-1">AI Writing Assistant</p>
             <p className="text-xs text-muted-foreground">
-              Ask anything about your project, get writing help, or use the quick actions below.
+              Ask anything, or use the quick actions below. Writing actions insert directly into your document.
             </p>
           </div>
         ) : (
           <div className="py-2">
             {messages.map((message) => (
-              <AiMessage key={message.id} message={message} />
+              <AiMessage
+                key={message.id}
+                message={message}
+                onSuggestionClick={(text) => sendMessage({ text })}
+                projectId={projectId}
+                chapterId={currentChapterId}
+              />
             ))}
             {isLoading && messages[messages.length - 1]?.role === 'user' && (
               <div className="flex items-center gap-2 py-3 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Thinking...</span>
+                <span className="text-sm">Writing...</span>
               </div>
             )}
             <div ref={bottomRef} />
@@ -79,9 +85,9 @@ export function AiChatPanel({ projectId }: AiChatPanelProps) {
       </ScrollArea>
 
       <AiActionBar
-        onAction={(prompt) => {
-          sendMessage({ text: prompt })
-        }}
+        onChatAction={(prompt) => sendMessage({ text: prompt })}
+        projectId={projectId}
+        chapterId={currentChapterId}
       />
 
       <div className="border-t p-3">
@@ -90,7 +96,7 @@ export function AiChatPanel({ projectId }: AiChatPanelProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask your AI assistant..."
+            placeholder="Ask anything, or describe what to write..."
             className="min-h-[60px] max-h-[120px] resize-none text-sm"
             disabled={isLoading}
           />

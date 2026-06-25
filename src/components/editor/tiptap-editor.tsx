@@ -8,16 +8,18 @@ import Placeholder from '@tiptap/extension-placeholder'
 import Typography from '@tiptap/extension-typography'
 import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
-import { BubbleMenu } from '@tiptap/react/menus'
 import { useEffect, useCallback } from 'react'
-import { AiSuggestion } from './extensions/ai-suggestion'
+import { AiInsertedMark, AiDeletedMark, TrackChanges } from './extensions/ai-suggestion'
 import { SlashCommands } from './slash-commands'
 import { EditorToolbar } from './editor-toolbar'
 import { EditorFooter } from './editor-footer'
 import { EditorBubbleMenu } from './bubble-menu'
+import { AiSuggestionBubble } from './ai-suggestion-bubble'
+import { SuggestionReviewBar } from './suggestion-review-bar'
 import { useEditorStore } from '@/stores/editor-store'
 import { useEditorAutosave } from '@/hooks/use-editor-autosave'
 import { getWordCount } from '@/lib/editor/word-count'
+import type { Editor } from '@tiptap/react'
 
 interface TipTapEditorProps {
   projectId: string
@@ -27,14 +29,34 @@ interface TipTapEditorProps {
 }
 
 export function TipTapEditor({ projectId, chapterId, initialContent, onContentChange }: TipTapEditorProps) {
-  const { setSaveStatus, setWordCount, setSelectedText, setCurrentChapter } = useEditorStore()
+  const {
+    setSaveStatus,
+    setWordCount,
+    setSelectedText,
+    setCurrentChapter,
+    setSelection,
+    setHasPendingSuggestions,
+    registerEditorCommands,
+    hasPendingSuggestions,
+  } = useEditorStore()
   const { debouncedSave } = useEditorAutosave(projectId, chapterId)
+
+  const checkPendingSuggestions = useCallback((ed: Editor) => {
+    let found = false
+    ed.state.doc.descendants((node) => {
+      if (found) return false
+      if (node.isText && node.marks.some(m => m.type.name === 'aiInserted' || m.type.name === 'aiDeleted')) {
+        found = true
+        return false
+      }
+      return true
+    })
+    setHasPendingSuggestions(found)
+  }, [setHasPendingSuggestions])
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-      }),
+      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       CharacterCount,
       Highlight.configure({ multicolor: false }),
       Placeholder.configure({
@@ -46,7 +68,9 @@ export function TipTapEditor({ projectId, chapterId, initialContent, onContentCh
       Typography,
       Underline,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      AiSuggestion,
+      AiInsertedMark,
+      AiDeletedMark,
+      TrackChanges,
       SlashCommands,
     ],
     content: initialContent ?? '',
@@ -57,19 +81,50 @@ export function TipTapEditor({ projectId, chapterId, initialContent, onContentCh
     },
     onUpdate: ({ editor }) => {
       const json = editor.getJSON()
-      const text = editor.getText()
-      const count = getWordCount(text)
+      const count = getWordCount(json)
       setWordCount(count)
       setSaveStatus('saving')
       debouncedSave(json, count)
       onContentChange?.(json)
+      checkPendingSuggestions(editor)
     },
     onSelectionUpdate: ({ editor }) => {
       const { from, to } = editor.state.selection
       const selected = from !== to ? editor.state.doc.textBetween(from, to, ' ') : null
       setSelectedText(selected)
+      setSelection(from, to > from ? to : null)
     },
   })
+
+  // Register editor commands in the store so other components can insert suggestions
+  useEffect(() => {
+    if (!editor) return
+
+    registerEditorCommands({
+      insertAiSuggestion: (options) => {
+        editor.commands.insertAiSuggestion(options)
+        setHasPendingSuggestions(true)
+      },
+      acceptAiSuggestion: (id) => {
+        editor.commands.acceptAiSuggestion(id)
+        checkPendingSuggestions(editor)
+      },
+      rejectAiSuggestion: (id) => {
+        editor.commands.rejectAiSuggestion(id)
+        checkPendingSuggestions(editor)
+      },
+      acceptAllAiSuggestions: () => {
+        editor.commands.acceptAllAiSuggestions()
+        setHasPendingSuggestions(false)
+      },
+      rejectAllAiSuggestions: () => {
+        editor.commands.rejectAllAiSuggestions()
+        setHasPendingSuggestions(false)
+      },
+    })
+
+    return () => registerEditorCommands(null)
+  }, [editor, registerEditorCommands, checkPendingSuggestions, setHasPendingSuggestions])
 
   useEffect(() => {
     setCurrentChapter(chapterId)
@@ -78,10 +133,10 @@ export function TipTapEditor({ projectId, chapterId, initialContent, onContentCh
 
   useEffect(() => {
     if (!editor) return
-    // When switching chapters: set the new content, or clear to blank if new chapter
     const newContent = initialContent ?? { type: 'doc', content: [{ type: 'paragraph' }] }
-    editor.commands.setContent(newContent, { emitUpdate: false }) // don't trigger autosave on chapter switch
-    setWordCount(editor.getText().split(/\s+/).filter(Boolean).length)
+    editor.commands.setContent(newContent, { emitUpdate: false })
+    setWordCount(getWordCount(editor.getJSON()))
+    setHasPendingSuggestions(false)
   }, [chapterId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!editor) return null
@@ -89,8 +144,10 @@ export function TipTapEditor({ projectId, chapterId, initialContent, onContentCh
   return (
     <div className="flex h-full flex-col">
       <EditorToolbar editor={editor} />
+      {hasPendingSuggestions && <SuggestionReviewBar />}
       <div className="flex-1 overflow-auto">
         <EditorBubbleMenu editor={editor} />
+        <AiSuggestionBubble editor={editor} />
         <EditorContent editor={editor} className="h-full" />
       </div>
       <EditorFooter editor={editor} />

@@ -104,6 +104,31 @@
 .ProseMirror mark { background-color: rgb(255 213 79 / 0.4); border-radius: 2px; padding: 0 2px; }
 .dark .ProseMirror mark { background-color: rgb(234 179 8 / 0.3); }
 
+/* AI Track Changes marks */
+.ai-inserted {
+  background-color: rgb(134 239 172 / 0.35);
+  border-bottom: 2px solid rgb(34 197 94);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.dark .ai-inserted {
+  background-color: rgb(21 128 61 / 0.25);
+  border-bottom-color: rgb(74 222 128);
+}
+.ai-deleted {
+  background-color: rgb(254 202 202 / 0.4);
+  text-decoration: line-through;
+  text-decoration-color: rgb(239 68 68);
+  color: rgb(185 28 28);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.dark .ai-deleted {
+  background-color: rgb(127 29 29 / 0.25);
+  color: rgb(252 165 165);
+  text-decoration-color: rgb(248 113 113);
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

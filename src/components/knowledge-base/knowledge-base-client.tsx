@@ -21,19 +21,30 @@ import { useEditorStore } from '@/stores/editor-store'
 
 type KBEntry = Tables<'knowledge_base'>
 
+interface Chapter {
+  id: string
+  title: string
+  order: number
+}
+
 interface KnowledgeBaseClientProps {
   projectId: string
   initialEntries: KBEntry[]
+  chapters?: Chapter[]
 }
 
-export function KnowledgeBaseClient({ projectId, initialEntries }: KnowledgeBaseClientProps) {
+export function KnowledgeBaseClient({ projectId, initialEntries, chapters }: KnowledgeBaseClientProps) {
   const [entries, setEntries] = useState(initialEntries)
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState<string>('all')
   const [creating, setCreating] = useState(false)
   const [newEntry, setNewEntry] = useState({ type: 'person', name: '', description: '' })
   const [isPending, startTransition] = useTransition()
+  const [selectedChapterId, setSelectedChapterId] = useState<string>('')
   const { currentChapterId } = useEditorStore()
+
+  const targetChapterId = currentChapterId ?? selectedChapterId
+  const showChapterPicker = !currentChapterId && chapters && chapters.length > 0
 
   const filtered = entries.filter((e) => {
     const matchSearch = !search ||
@@ -66,9 +77,9 @@ export function KnowledgeBaseClient({ projectId, initialEntries }: KnowledgeBase
   }
 
   const handleAutoExtract = async () => {
-    if (!currentChapterId) { toast.error('Open a chapter first'); return }
+    if (!targetChapterId) { toast.error('Select a chapter first'); return }
     startTransition(async () => {
-      await extractKnowledgeBaseEntities(projectId, currentChapterId)
+      await extractKnowledgeBaseEntities(projectId, targetChapterId)
       const supabase = createClient()
       const { data } = await supabase.from('knowledge_base').select('*').eq('project_id', projectId)
       if (data) setEntries(data)
@@ -82,7 +93,19 @@ export function KnowledgeBaseClient({ projectId, initialEntries }: KnowledgeBase
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-lg font-semibold">Knowledge Base</h1>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleAutoExtract} disabled={isPending}>
+            {showChapterPicker && (
+              <Select value={selectedChapterId} onValueChange={setSelectedChapterId}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Select chapter..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {chapters!.map((ch) => (
+                    <SelectItem key={ch.id} value={ch.id}>{ch.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button variant="outline" size="sm" onClick={handleAutoExtract} disabled={isPending || !targetChapterId}>
               <Sparkles className="mr-2 h-4 w-4" />
               Auto-extract
             </Button>
