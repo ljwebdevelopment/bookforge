@@ -128,11 +128,5 @@ Format your response with clear sections. Be specific—quote exact passages whe
 }
 
 export function buildKnowledgeBaseExtractionPrompt(): string {
-  return `Extract key entities from the provided text passage. Return a JSON array where each item has:
-- type: one of "person", "place", "event", "organization", "argument", "quote", "theme"
-- name: the entity name
-- description: brief description (1-2 sentences)
-- data: object with any relevant additional fields
-
-Focus on entities that would be useful to track for consistency and continuity across the manuscript. Only extract entities that are clearly defined or described in the passage.`
+  return `You are extracting key entities from a passage of a long-form writing project. Identify only entities that are clearly described in the passage and would be useful to track for continuity: characters (person), locations (place), events, organizations, recurring themes, notable quotes, and key arguments. Skip minor or ambiguous mentions.`
 }

@@ -2,8 +2,9 @@
 
 import { createClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/types'
-import { upsertMemory, appendToMemory } from '@/lib/ai/memory'
-import { generateText } from 'ai'
+import { upsertMemory } from '@/lib/ai/memory'
+import { generateText, generateObject } from 'ai'
+import { z } from 'zod'
 import { getAIProvider } from '@/lib/ai/provider'
 import { buildProjectContext } from '@/lib/ai/context-builder'
 import { buildKnowledgeBaseExtractionPrompt } from '@/lib/ai/system-prompts'
@@ -39,6 +40,16 @@ export async function updateAiMemoryFromEdits(projectId: string) {
   await upsertMemory(supabase, projectId, 'voice', text)
 }
 
+const KB_ENTITY_SCHEMA = z.object({
+  entities: z.array(
+    z.object({
+      type: z.enum(['person', 'place', 'event', 'organization', 'argument', 'quote', 'theme', 'other']),
+      name: z.string().min(1),
+      description: z.string(),
+    })
+  ),
+})
+
 export async function extractKnowledgeBaseEntities(projectId: string, chapterId: string) {
   const supabase = await createClient()
 
@@ -49,41 +60,39 @@ export async function extractKnowledgeBaseEntities(projectId: string, chapterId:
     .single()
 
   const chapter = rawChapter as { content: unknown } | null
-  if (!chapter?.content) return
+  if (!chapter?.content) throw new Error('Chapter has no content')
 
   const { extractPlainText } = await import('@/lib/utils')
-  const text = extractPlainText(chapter.content).slice(0, 4000)
+  const text = extractPlainText(chapter.content).trim().slice(0, 4000)
+  if (!text) throw new Error('Chapter has no text to analyze')
 
-  const { text: result } = await generateText({
-    model: getAIProvider(),
+  // Get project's AI model
+  const ctx = await buildProjectContext(supabase, projectId)
+
+  const { object } = await generateObject({
+    model: getAIProvider(ctx.aiModel),
     system: buildKnowledgeBaseExtractionPrompt(),
     prompt: text,
+    schema: KB_ENTITY_SCHEMA,
     maxOutputTokens: 1000,
   })
 
-  try {
-    const jsonMatch = result.match(/\[[\s\S]*\]/)
-    if (!jsonMatch) return
+  if (!object.entities.length) return
 
-    type KBType = 'person' | 'place' | 'event' | 'organization' | 'argument' | 'quote' | 'theme' | 'other'
-    const entities = JSON.parse(jsonMatch[0]) as Array<{ type: KBType; name: string; description: string; data: unknown }>
-    await Promise.all(
-      entities.map((entity) =>
-        supabase.from('knowledge_base').upsert(
-          {
-            project_id: projectId,
-            type: entity.type,
-            name: entity.name,
-            description: entity.description,
-            data: (entity.data ?? {}) as Json,
-          },
-          { onConflict: 'project_id,name,type' }
-        )
+  await Promise.all(
+    object.entities.map((entity) =>
+      supabase.from('knowledge_base').upsert(
+        {
+          project_id: projectId,
+          type: entity.type,
+          name: entity.name,
+          description: entity.description,
+          data: {} as Json,
+        },
+        { onConflict: 'project_id,name,type' }
       )
     )
-  } catch {
-    // JSON parse failed — skip silently
-  }
+  )
 }
 
 export async function updateWritingGuidelines(projectId: string, guidelines: string) {
