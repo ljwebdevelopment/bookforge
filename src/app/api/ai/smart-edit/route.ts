@@ -9,10 +9,10 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return new Response('Unauthorized', { status: 401 })
 
-  const { selectedText, action, projectId } = await req.json()
+  const { selectedText, action, projectId, chapterId } = await req.json()
   if (!selectedText || !action) return new Response('Missing required fields', { status: 400 })
 
-  const ctx = await buildProjectContext(supabase, projectId)
+  const ctx = await buildProjectContext(supabase, projectId, chapterId ?? null)
 
   const { text } = await generateText({
     model: getAIProvider(ctx.aiModel),
