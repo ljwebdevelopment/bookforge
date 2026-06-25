@@ -12,11 +12,24 @@ export default async function KnowledgeBasePage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: entries } = await supabase
-    .from('knowledge_base')
-    .select('*')
-    .eq('project_id', projectId)
-    .order('type', { ascending: true })
+  const [entriesRes, chaptersRes] = await Promise.all([
+    supabase
+      .from('knowledge_base')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('type', { ascending: true }),
+    supabase
+      .from('chapters')
+      .select('id, title, order')
+      .eq('project_id', projectId)
+      .order('order', { ascending: true }),
+  ])
 
-  return <KnowledgeBaseClient projectId={projectId} initialEntries={(entries ?? []) as never} />
+  return (
+    <KnowledgeBaseClient
+      projectId={projectId}
+      initialEntries={(entriesRes.data ?? []) as never}
+      chapters={chaptersRes.data ?? []}
+    />
+  )
 }
