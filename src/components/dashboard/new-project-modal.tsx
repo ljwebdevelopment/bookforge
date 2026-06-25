@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -27,6 +28,7 @@ import {
 import { toast } from 'sonner'
 
 export function NewProjectModal() {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [template, setTemplate] = useState('blank')
   const [title, setTitle] = useState('')
@@ -39,13 +41,15 @@ export function NewProjectModal() {
 
     startTransition(async () => {
       try {
-        await createProject(title.trim(), template, genre || undefined)
+        const { projectId } = await createProject(title.trim(), template, genre || undefined)
         setOpen(false)
         setTitle('')
         setTemplate('blank')
         setGenre('')
-      } catch {
-        toast.error('Failed to create project')
+        router.push(`/projects/${projectId}/manuscript`)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to create project'
+        toast.error(msg)
       }
     })
   }

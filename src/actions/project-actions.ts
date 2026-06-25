@@ -10,7 +10,7 @@ export async function createProject(
   template: string = 'blank',
   genre?: string,
   subtitle?: string,
-) {
+): Promise<{ projectId: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -37,7 +37,7 @@ export async function createProject(
     .select('id')
     .single()
 
-  if (error || !project) throw new Error('Failed to create project')
+  if (error || !project) throw new Error(error?.message ?? 'Failed to create project')
 
   const projectId = project.id
 
@@ -65,7 +65,7 @@ export async function createProject(
   ])
 
   revalidatePath('/')
-  redirect(`/projects/${projectId}/manuscript`)
+  return { projectId }
 }
 
 export async function updateProject(projectId: string, updates: {
