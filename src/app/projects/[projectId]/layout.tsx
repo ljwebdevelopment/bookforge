@@ -10,19 +10,27 @@ export default async function ProjectLayout({
   params: Promise<{ projectId: string }>
 }) {
   const { projectId } = await params
-  const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  let supabase
+  try {
+    supabase = await createClient()
+  } catch {
+    redirect('/login')
+  }
 
-  const { data: project } = await supabase
+  const { data: authData, error: authError } = await supabase.auth.getUser()
+  if (authError || !authData?.user) redirect('/login')
+
+  const user = authData.user
+
+  const { data: project, error: projectError } = await supabase
     .from('projects')
     .select('id, title, owner_id')
     .eq('id', projectId)
     .eq('owner_id', user.id)
     .single()
 
-  if (!project) notFound()
+  if (projectError || !project) notFound()
 
   return (
     <WorkspaceLayout projectId={projectId} projectTitle={project.title}>
