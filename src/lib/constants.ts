@@ -136,7 +136,7 @@ export const WORKSPACE_NAV_ITEMS = [
   { id: 'settings', label: 'Settings', icon: 'Settings', href: 'settings' },
 ] as const
 
-export const DEFAULT_AI_MODEL = 'claude-sonnet-4-6'
+export const DEFAULT_AI_MODEL = 'gemini-2.5-flash'
 export const AUTOSAVE_DELAY_MS = 2000
 export const VERSION_SNAPSHOT_INTERVAL_MS = 15 * 60 * 1000
 export const VERSION_SNAPSHOT_WORD_THRESHOLD = 1000

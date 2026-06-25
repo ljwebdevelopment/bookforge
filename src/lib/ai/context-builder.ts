@@ -72,7 +72,7 @@ export async function buildProjectContext(
   // Get AI model from project settings
   const rawSettings = (project as unknown as { project_settings?: { ai_model?: string } | { ai_model?: string }[] | null })?.project_settings
   const settings = Array.isArray(rawSettings) ? rawSettings[0] : rawSettings
-  const aiModel = settings?.ai_model ?? 'claude-sonnet-4-6'
+  const aiModel = settings?.ai_model ?? 'gemini-2.5-flash'
 
   return {
     projectTitle: project?.title ?? 'Untitled Project',
