@@ -80,7 +80,7 @@ export function TipTapEditor({ projectId, chapterId, initialContent, onContentCh
     if (!editor) return
     // When switching chapters: set the new content, or clear to blank if new chapter
     const newContent = initialContent ?? { type: 'doc', content: [{ type: 'paragraph' }] }
-    editor.commands.setContent(newContent, false) // false = don't emit update (avoid triggering save)
+    editor.commands.setContent(newContent, { emitUpdate: false }) // don't trigger autosave on chapter switch
     setWordCount(editor.getText().split(/\s+/).filter(Boolean).length)
   }, [chapterId]) // eslint-disable-line react-hooks/exhaustive-deps
 
