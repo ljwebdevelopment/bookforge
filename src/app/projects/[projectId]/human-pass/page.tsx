@@ -9,8 +9,14 @@ export default async function HumanPassPage({
 }) {
   const { projectId } = await params
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const { data: authData } = await supabase.auth.getUser()
+  if (!authData?.user) redirect('/login')
 
-  return <HumanPassPageClient projectId={projectId} />
+  const { data: chapters } = await supabase
+    .from('chapters')
+    .select('id, title, order')
+    .eq('project_id', projectId)
+    .order('order', { ascending: true })
+
+  return <HumanPassPageClient projectId={projectId} chapters={chapters ?? []} />
 }

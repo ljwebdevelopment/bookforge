@@ -2,19 +2,31 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Loader2, Check, X, UserCheck } from 'lucide-react'
 import { SuggestionDiff } from './suggestion-diff'
 import { useAIStore } from '@/stores/ai-store'
 import { useEditorStore } from '@/stores/editor-store'
-import { updateAiSuggestionStatus } from '@/actions/ai-actions'
 import { logAcceptedEdit, logRejectedEdit } from '@/lib/ai/memory'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
+interface Chapter {
+  id: string
+  title: string
+  order: number
+}
+
 interface HumanPassPanelProps {
   projectId: string
+  chapters?: Chapter[]
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -27,41 +39,53 @@ const TYPE_COLORS: Record<string, string> = {
   other: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
 }
 
-export function HumanPassPanel({ projectId }: HumanPassPanelProps) {
+export function HumanPassPanel({ projectId, chapters }: HumanPassPanelProps) {
   const { humanPassSuggestions, humanPassLoading, setHumanPassSuggestions, setHumanPassLoading } = useAIStore()
   const { currentChapterId } = useEditorStore()
   const [dismissed, setDismissed] = useState<Set<number>>(new Set())
+  const [selectedChapterId, setSelectedChapterId] = useState<string>('')
+
+  // Resolve which chapter to analyze:
+  // - If in the editor sidebar, use the currently open chapter
+  // - If on the standalone page, use the dropdown selection
+  const targetChapterId = currentChapterId ?? selectedChapterId
 
   const runHumanPass = async () => {
-    if (!currentChapterId) {
-      toast.error('No chapter selected')
+    if (!targetChapterId) {
+      toast.error('Select a chapter to analyze')
       return
     }
 
     setHumanPassLoading(true)
 
     try {
-      // Get chapter text from the editor store or fetch it
       const supabase = createClient()
       const { data: chapter } = await supabase
         .from('chapters')
         .select('content')
-        .eq('id', currentChapterId)
+        .eq('id', targetChapterId)
         .single()
 
       if (!chapter?.content) {
-        toast.error('No content to analyze')
+        toast.error('This chapter has no content yet')
         return
       }
 
       const { extractPlainText } = await import('@/lib/utils')
       const text = extractPlainText(chapter.content)
 
+      if (!text.trim()) {
+        toast.error('This chapter has no content yet')
+        return
+      }
+
       const res = await fetch('/api/ai/human-pass', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, chapterId: currentChapterId, text }),
+        body: JSON.stringify({ projectId, chapterId: targetChapterId, text }),
       })
+
+      if (!res.ok) throw new Error('Request failed')
 
       const data = await res.json()
       setHumanPassSuggestions(data.suggestions ?? [])
@@ -87,16 +111,40 @@ export function HumanPassPanel({ projectId }: HumanPassPanelProps) {
   }
 
   const visible = humanPassSuggestions.filter((_, i) => !dismissed.has(i))
+  const showChapterPicker = !currentChapterId && chapters && chapters.length > 0
+  const selectedChapterName = chapters?.find((c) => c.id === selectedChapterId)?.title
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b p-4">
-        <p className="text-xs text-muted-foreground mb-3">
+      <div className="border-b p-4 space-y-3">
+        <p className="text-xs text-muted-foreground">
           Detect generic, robotic, or weak writing and get specific suggestions to strengthen your voice.
         </p>
+
+        {showChapterPicker && (
+          <Select value={selectedChapterId} onValueChange={setSelectedChapterId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a chapter to analyze..." />
+            </SelectTrigger>
+            <SelectContent>
+              {chapters.map((ch) => (
+                <SelectItem key={ch.id} value={ch.id}>
+                  {ch.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {currentChapterId && (
+          <p className="text-xs text-muted-foreground">
+            Analyzing the currently open chapter in the editor.
+          </p>
+        )}
+
         <Button
           onClick={runHumanPass}
-          disabled={humanPassLoading || !currentChapterId}
+          disabled={humanPassLoading || !targetChapterId}
           className="w-full gap-2"
         >
           {humanPassLoading ? (
@@ -107,7 +155,7 @@ export function HumanPassPanel({ projectId }: HumanPassPanelProps) {
           ) : (
             <>
               <UserCheck className="h-4 w-4" />
-              Run Human Pass
+              {selectedChapterName ? `Analyze "${selectedChapterName}"` : 'Run Human Pass'}
             </>
           )}
         </Button>
@@ -123,7 +171,11 @@ export function HumanPassPanel({ projectId }: HumanPassPanelProps) {
 
         {humanPassSuggestions.length === 0 && !humanPassLoading && (
           <div className="text-center py-8 text-muted-foreground">
-            <p className="text-sm">Run Human Pass to detect writing issues.</p>
+            <p className="text-sm">
+              {showChapterPicker
+                ? 'Select a chapter above and run Human Pass to detect writing issues.'
+                : 'Run Human Pass to detect writing issues.'}
+            </p>
           </div>
         )}
 
