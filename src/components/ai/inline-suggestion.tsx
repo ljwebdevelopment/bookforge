@@ -4,11 +4,10 @@ import { useState } from 'react'
 import { useAIStore } from '@/stores/ai-store'
 import { useEditorStore } from '@/stores/editor-store'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Badge } from '@/components/ui/badge'
-import { Loader2, Check, X, RefreshCw, ChevronDown } from 'lucide-react'
+import { Loader2, Check, X, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { logAcceptedEdit, logRejectedEdit } from '@/lib/ai/memory'
+import { toast } from 'sonner'
 
 const SMART_EDIT_ACTIONS = [
   { id: 'rewrite', label: 'Rewrite' },
@@ -24,7 +23,7 @@ const SMART_EDIT_ACTIONS = [
 
 export function InlineSuggestion() {
   const { setPanelMode } = useAIStore()
-  const { selectedText, currentProjectId, currentChapterId } = useEditorStore()
+  const { selectedText, selectionFrom, selectionTo, currentProjectId, currentChapterId, insertAiSuggestion } = useEditorStore()
   const [loading, setLoading] = useState(false)
   const [action, setAction] = useState('rewrite')
   const [result, setResult] = useState<string | null>(null)
@@ -34,36 +33,48 @@ export function InlineSuggestion() {
     setLoading(true)
     setResult(null)
     try {
-      const res = await fetch('/api/ai/smart-edit', {
+      const res = await fetch('/api/ai/write', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           selectedText,
-          action,
+          prompt: action,
           projectId: currentProjectId,
           chapterId: currentChapterId,
         }),
       })
       const data = await res.json()
-      setResult(data.result)
+      setResult(data.text)
     } catch {
-      setResult('Failed to generate suggestion. Please try again.')
+      toast.error('Failed to generate suggestion. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
   const handleAccept = async () => {
-    if (!result || !currentProjectId) return
-    // Log the accepted edit for AI learning
-    // Note: Editor integration would use document.execCommand or a callback
-    // For now, copy to clipboard so user can paste
-    await navigator.clipboard.writeText(result)
+    if (!result) return
+
+    if (insertAiSuggestion && selectionFrom !== null && selectionTo !== null && selectionTo > selectionFrom) {
+      // Insert as tracked change directly in the editor
+      insertAiSuggestion({
+        text: result,
+        selectionFrom,
+        selectionTo,
+      })
+      toast.success('Suggestion inserted — accept or reject it in the document')
+    } else if (insertAiSuggestion) {
+      // No selection: insert at cursor
+      insertAiSuggestion({ text: result })
+      toast.success('Suggestion inserted — accept or reject it in the document')
+    }
+
     if (currentProjectId) {
       const { createClient } = await import('@/lib/supabase/client')
       const supabase = createClient()
       await logAcceptedEdit(supabase, currentProjectId, selectedText ?? '', result)
     }
+
     setResult(null)
     setPanelMode('chat')
   }
@@ -132,17 +143,17 @@ export function InlineSuggestion() {
       {result && (
         <div className="flex-1 flex flex-col">
           <div className="rounded-md border bg-muted/30 p-3 mb-3 flex-1 overflow-auto">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Suggestion</p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">Preview</p>
             <p className="text-sm whitespace-pre-wrap leading-relaxed">{result}</p>
           </div>
           <div className="flex gap-2">
             <Button size="sm" onClick={handleAccept} className="flex-1 gap-1.5">
               <Check className="h-3.5 w-3.5" />
-              Accept (copies to clipboard)
+              Insert into document
             </Button>
             <Button size="sm" variant="outline" onClick={handleReject} className="gap-1.5">
               <X className="h-3.5 w-3.5" />
-              Reject
+              Discard
             </Button>
             <Button size="sm" variant="ghost" onClick={handleGenerate} className="gap-1.5">
               <RefreshCw className="h-3.5 w-3.5" />

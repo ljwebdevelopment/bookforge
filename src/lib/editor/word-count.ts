@@ -1,12 +1,16 @@
 import { extractPlainText } from '@/lib/utils'
 
-export function getWordCount(json: unknown): number {
-  const text = extractPlainText(json)
+function toText(input: unknown): string {
+  return typeof input === 'string' ? input : extractPlainText(input)
+}
+
+export function getWordCount(input: unknown): number {
+  const text = toText(input)
   return text.trim().split(/\s+/).filter(Boolean).length
 }
 
-export function getSentenceCount(json: unknown): number {
-  const text = extractPlainText(json)
+export function getSentenceCount(input: unknown): number {
+  const text = toText(input)
   const matches = text.match(/[.!?]+/g)
   return matches ? matches.length : 0
 }
