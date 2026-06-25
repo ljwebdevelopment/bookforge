@@ -77,22 +77,37 @@ export async function extractKnowledgeBaseEntities(projectId: string, chapterId:
     maxOutputTokens: 1000,
   })
 
-  if (!object.entities.length) return
+  if (!object.entities.length) return 0
 
-  await Promise.all(
-    object.entities.map((entity) =>
-      supabase.from('knowledge_base').upsert(
-        {
-          project_id: projectId,
-          type: entity.type,
-          name: entity.name,
-          description: entity.description,
-          data: {} as Json,
-        },
-        { onConflict: 'project_id,name,type' }
-      )
-    )
+  // Fetch existing entries to skip duplicates without relying on a DB constraint
+  const { data: existing } = await supabase
+    .from('knowledge_base')
+    .select('name, type')
+    .eq('project_id', projectId)
+
+  const existingSet = new Set(
+    (existing ?? []).map((e) => `${e.type}:${e.name.toLowerCase()}`)
   )
+
+  const newEntities = object.entities.filter(
+    (e) => !existingSet.has(`${e.type}:${e.name.toLowerCase()}`)
+  )
+
+  if (!newEntities.length) return 0
+
+  const { error } = await supabase.from('knowledge_base').insert(
+    newEntities.map((entity) => ({
+      project_id: projectId,
+      type: entity.type,
+      name: entity.name,
+      description: entity.description,
+      data: {} as Json,
+    }))
+  )
+
+  if (error) throw new Error(`Failed to save entities: ${error.message}`)
+
+  return newEntities.length
 }
 
 export async function updateWritingGuidelines(projectId: string, guidelines: string) {

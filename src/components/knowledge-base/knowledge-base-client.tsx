@@ -80,11 +80,15 @@ export function KnowledgeBaseClient({ projectId, initialEntries, chapters }: Kno
     if (!targetChapterId) { toast.error('Select a chapter first'); return }
     startTransition(async () => {
       try {
-        await extractKnowledgeBaseEntities(projectId, targetChapterId)
+        const added = await extractKnowledgeBaseEntities(projectId, targetChapterId)
         const supabase = createClient()
         const { data } = await supabase.from('knowledge_base').select('*').eq('project_id', projectId)
         if (data) setEntries(data)
-        toast.success('Entities extracted and added to knowledge base')
+        if (added) {
+          toast.success(`${added} new ${added === 1 ? 'entity' : 'entities'} added to knowledge base`)
+        } else {
+          toast.info('No new entities found — all are already in the knowledge base')
+        }
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Extraction failed. Please try again.')
       }
