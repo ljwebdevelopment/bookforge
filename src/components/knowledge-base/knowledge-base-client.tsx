@@ -79,11 +79,15 @@ export function KnowledgeBaseClient({ projectId, initialEntries, chapters }: Kno
   const handleAutoExtract = async () => {
     if (!targetChapterId) { toast.error('Select a chapter first'); return }
     startTransition(async () => {
-      await extractKnowledgeBaseEntities(projectId, targetChapterId)
-      const supabase = createClient()
-      const { data } = await supabase.from('knowledge_base').select('*').eq('project_id', projectId)
-      if (data) setEntries(data)
-      toast.success('Extracted entities from current chapter')
+      try {
+        await extractKnowledgeBaseEntities(projectId, targetChapterId)
+        const supabase = createClient()
+        const { data } = await supabase.from('knowledge_base').select('*').eq('project_id', projectId)
+        if (data) setEntries(data)
+        toast.success('Entities extracted and added to knowledge base')
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Extraction failed. Please try again.')
+      }
     })
   }
 
