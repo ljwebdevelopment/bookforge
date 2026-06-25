@@ -65,7 +65,13 @@ export function AiChatPanel({ projectId }: AiChatPanelProps) {
         ) : (
           <div className="py-2">
             {messages.map((message) => (
-              <AiMessage key={message.id} message={message} />
+              <AiMessage
+                key={message.id}
+                message={message}
+                onSuggestionClick={(text) => {
+                  sendMessage({ text })
+                }}
+              />
             ))}
             {isLoading && messages[messages.length - 1]?.role === 'user' && (
               <div className="flex items-center gap-2 py-3 text-muted-foreground">

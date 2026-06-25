@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/types'
-import { extractPlainText, estimateTokenCount, truncateText } from '@/lib/utils'
+import { extractPlainText } from '@/lib/utils'
 import {
   GUIDELINES_TOKEN_BUDGET,
   MEMORY_TOKEN_BUDGET,
@@ -14,6 +14,7 @@ export interface ProjectContext {
   guidelines: string
   memory: string
   manuscriptExcerpt: string
+  outlineContext: string
   aiModel: string
 }
 
@@ -23,7 +24,7 @@ export async function buildProjectContext(
   chapterId?: string | null
 ): Promise<ProjectContext> {
   // Fetch in parallel
-  const [projectRes, guidelinesRes, memoryRes, chapterRes] = await Promise.all([
+  const [projectRes, guidelinesRes, memoryRes, chapterRes, outlineRes] = await Promise.all([
     supabase
       .from('projects')
       .select('title, genre, template, project_settings(ai_model)')
@@ -46,11 +47,17 @@ export async function buildProjectContext(
           .eq('id', chapterId)
           .single()
       : Promise.resolve({ data: null }),
+    supabase
+      .from('outlines')
+      .select('id, title, level, order, parent_id, completion_status, notes')
+      .eq('project_id', projectId)
+      .order('order', { ascending: true }),
   ])
 
   const project = projectRes.data
   const guidelinesRaw = guidelinesRes.data?.guidelines ?? ''
   const memoryEntries = memoryRes.data ?? []
+  const outlineNodes = outlineRes.data ?? []
 
   // Build guidelines string (truncate if needed)
   const guidelines = truncateToTokenBudget(guidelinesRaw, GUIDELINES_TOKEN_BUDGET)
@@ -69,6 +76,9 @@ export async function buildProjectContext(
     manuscriptExcerpt = truncateToTokenBudget(plainText, MANUSCRIPT_TOKEN_BUDGET)
   }
 
+  // Build outline context
+  const outlineContext = formatOutlineNodes(outlineNodes)
+
   // Get AI model from project settings
   const rawSettings = (project as unknown as { project_settings?: { ai_model?: string } | { ai_model?: string }[] | null })?.project_settings
   const settings = Array.isArray(rawSettings) ? rawSettings[0] : rawSettings
@@ -81,8 +91,46 @@ export async function buildProjectContext(
     guidelines,
     memory,
     manuscriptExcerpt,
+    outlineContext,
     aiModel,
   }
+}
+
+type OutlineNode = {
+  id: string
+  title: string
+  level: number
+  order: number
+  parent_id: string | null
+  completion_status: string
+  notes: string | null
+}
+
+function formatOutlineNodes(nodes: OutlineNode[]): string {
+  if (nodes.length === 0) return ''
+
+  // Build adjacency map
+  const childrenOf = new Map<string | null, OutlineNode[]>()
+  for (const node of nodes) {
+    const key = node.parent_id ?? null
+    if (!childrenOf.has(key)) childrenOf.set(key, [])
+    childrenOf.get(key)!.push(node)
+  }
+
+  const lines: string[] = []
+  function renderNode(node: OutlineNode, depth: number) {
+    const indent = '  '.repeat(depth)
+    const status = node.completion_status === 'complete' ? ' ✓' : node.completion_status === 'in_progress' ? ' ◐' : ''
+    lines.push(`${indent}- ${node.title}${status}`)
+    if (node.notes) lines.push(`${indent}  Note: ${node.notes}`)
+    const children = childrenOf.get(node.id) ?? []
+    children.sort((a, b) => a.order - b.order)
+    for (const child of children) renderNode(child, depth + 1)
+  }
+
+  const roots = (childrenOf.get(null) ?? []).sort((a, b) => a.order - b.order)
+  for (const root of roots) renderNode(root, 0)
+  return lines.join('\n')
 }
 
 function truncateToTokenBudget(text: string, budgetTokens: number): string {
